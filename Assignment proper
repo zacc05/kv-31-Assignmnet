@@ -1,0 +1,633 @@
+from cProfile import label
+from logging import warning
+
+import PySide6
+import sys
+import json
+from PySide6.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout, QPushButton, QMainWindow, QStackedWidget, \
+    QLineEdit, QHBoxLayout, QComboBox, QTableWidget, QTableWidgetItem
+from PySide6.QtCore import Qt
+
+USER_DATA_FILE = "users.json"
+
+
+def load_user_data():
+    try:
+        with open(USER_DATA_FILE, "r") as file:
+            data = json.load(file)
+        return data["users"]
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def save_user_data(users):
+    with open(USER_DATA_FILE, "w") as file:
+        json.dump({"users": users}, file, indent=4)
+
+
+class BasePage(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+
+
+class LoginPage(BasePage):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+
+        self.setWindowTitle("Login")
+
+        self.username_label = QLabel("Username:")
+        self.username_input = QLineEdit()
+
+        self.username_input.setPlaceholderText("Enter your username")
+        self.password_label = QLabel("Password:")
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.Password)
+        self.password_input.setPlaceholderText("Enter your password")
+
+        self.login_button = QPushButton("Login")
+        self.login_button.clicked.connect(self.authenticate)
+
+        self.register_button = QPushButton("Register")
+        self.register_button.clicked.connect(self.go_to_registration_page)
+
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet("Color:Red;")
+
+        self.layout.addWidget(self.username_label)
+        self.layout.addWidget(self.username_input)
+        self.layout.addWidget(self.password_label)
+        self.layout.addWidget(self.password_input)
+        self.layout.addWidget(self.login_button)
+        self.layout.addWidget(self.register_button)
+        self.layout.addWidget(self.error_label)
+
+        self.setLayout(self.layout)
+
+    def authenticate(self):
+        """simulate login authentication."""
+        username = self.username_input.text()
+        password = self.password_input.text()
+        users = load_user_data()
+        for user in users:
+            if user["username"] == username and user["password"] == password:
+                print("Login successful")
+                self.main_window.transition_to_main_screen()
+                return
+        self.error_label.setText("Invalid username or password")
+        self.username_input.clear()
+        self.password_input.clear()
+
+    def go_to_registration_page(self):
+        """taking you to Registration page"""
+        self.main_window.transition_to_registration_page()
+
+
+class RegistrationPage(BasePage):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+        self.setWindowTitle("Registration")
+
+        self.username_label = QLabel("Username:")
+        self.username_input = QLineEdit()
+        self.username_input.setPlaceholderText("Enter username")
+
+        self.password_label = QLabel("Password:")
+        self.password_input = QLineEdit()
+        self.password_input.setPlaceholderText("Enter password")
+
+        self.register_button = QPushButton("Register")
+        self.register_button.clicked.connect(self.register)
+
+        self.layout.addWidget(self.username_label)
+        self.layout.addWidget(self.username_input)
+        self.layout.addWidget(self.password_label)
+        self.layout.addWidget(self.password_input)
+        self.layout.addWidget(self.register_button)
+        self.setLayout(self.layout)
+
+    def register(self):
+        """Handle users registration"""
+        username = self.username_input.text()
+        password = self.password_input.text()
+
+        if not username or not password:
+            print("Please fill the required boxes")
+            return
+        users = load_user_data()
+        if any(user['username'] == username for user in users):
+            print("Username already taken")
+        new_user = {"username": username, "password": password}
+        users.append(new_user)
+        save_user_data(users)
+        print("Registration is complete")
+
+        self.main_window.transition_to_the_login_page()
+
+
+class MainScreen(BasePage):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+
+        self.setWindowTitle("welcome to Greener Bikes")
+
+        self.production_button = QPushButton("production workflow")
+        self.production_button.clicked.connect(self.go_to_production)
+
+        self.inventory_button = QPushButton("Inventory Management")
+        self.inventory_button.clicked.connect(self.go_to_inventory)
+
+        self.order_button = QPushButton("Order management")
+        self.order_button.clicked.connect(self.go_to_order_management)
+
+        self.reports_button = QPushButton("Reports")
+        self.reports_button.clicked.connect(self.go_to_report_page)
+
+        self.layout.addWidget(self.production_button)
+        self.layout.addWidget(self.inventory_button)
+        self.layout.addWidget(self.order_button)
+        self.layout.addWidget(self.reports_button)
+
+    def go_to_production(self):
+        print("Going to production workflow")
+        self.main_window.transition_to_production_workflow()
+
+    def go_to_inventory(self):
+        print("going to inventory")
+        self.main_window.transition_to_inventory_page()
+
+    def go_to_order_management(self):
+        self.main_window.transition_to_order_management_page()
+
+    def go_to_report_page(self):
+        self.main_window.transition_to_reports_page()
+
+
+class ProductionWorkflowPage(BasePage):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+        self.setWindowTitle("Production workflow")
+
+        self.components = {
+            'steel': 20,
+            'frame': 20,
+            'fork': 50,
+            'painting': 20,
+            'pedal': 30,
+            'wheel': 10,
+            'chain': 3,
+            'brakes': 6,
+            'lights': 7,
+            'seats': 4,
+
+        }
+
+        self.frame_welding_stock_label = QLabel(f" Frame: {self.components['frame']}")
+        self.fork_welding_stock_label = QLabel(f"Fork: {self.components['fork']}")
+        self.painting_stock_label = QLabel(f" paint: {self.components['painting']}")
+        self.pedal_stock_label = QLabel(f"pedal stock: {self.components['pedal']}")
+        self.wheel_stock_label = QLabel(f" Wheel stock:{self.components['wheel']}")
+        self.chain_stock_label = QLabel(f"Chain stock: {self.components['chain']}")
+        self.brake_stock_label = QLabel(f"brake stock: {self.components['brakes']}")
+        self.light_stock_label = QLabel(f"light stock: {self.components['lights']}")
+        self.seat_stock_label = QLabel(f"Seat stock: {self.components['seats']}")
+
+        self.frame_welding_button = QPushButton("Record frame assembly station")
+        self.frame_welding_button.clicked.connect(self.record_frame_welding)
+
+        self.fork_welding_button = QPushButton("Record fork assembly station")
+        self.fork_welding_button.clicked.connect(self.record_fork_welding)
+
+        self.painting_button = QPushButton("Record painting process")
+        self.painting_button.clicked.connect(self.record_painting)
+
+        self.pedal_button = QPushButton("Record addition of pedals")
+        self.pedal_button.clicked.connect(self.record_pedal_addition)
+
+        self.wheel_button = QPushButton("Record wheels being added")
+        self.wheel_button.clicked.connect(self.record_wheel_addition)
+
+        self.chain_button = QPushButton("Record addition of chain")
+        self.chain_button.clicked.connect(self.record_chain_addition)
+
+        self.brake_button = QPushButton("Record brake addition")
+        self.brake_button.clicked.connect(self.record_brake_addition)
+
+        self.light_button = QPushButton("Record addition of lights")
+        self.light_button.clicked.connect(self.record_light_addition)
+
+        self.seat_button = QPushButton("Record seat addition")
+        self.seat_button.clicked.connect(self.record_seat_addition)
+
+        self.back_button = QPushButton("Back to home page")
+        self.back_button.clicked.connect(self.back_button_clicked)
+
+        self.layout.addWidget(QLabel("frame station"))
+        self.layout.addWidget(self.frame_welding_stock_label)
+        self.layout.addWidget(self.frame_welding_button)
+
+        self.layout.addWidget(QLabel("Fork station"))
+        self.layout.addWidget(self.fork_welding_stock_label)
+        self.layout.addWidget(self.fork_welding_button)
+
+        self.layout.addWidget(QLabel("Painting station"))
+        self.layout.addWidget(self.painting_stock_label)
+        self.layout.addWidget(self.painting_button)
+
+        self.layout.addWidget(QLabel("Assembly station"))
+        self.layout.addWidget(self.pedal_stock_label)
+        self.layout.addWidget(self.pedal_button)
+        self.layout.addWidget(self.wheel_stock_label)
+        self.layout.addWidget(self.wheel_button)
+        self.layout.addWidget(self.chain_stock_label)
+        self.layout.addWidget(self.chain_button)
+        self.layout.addWidget(self.brake_stock_label)
+        self.layout.addWidget(self.brake_button)
+        self.layout.addWidget(self.light_stock_label)
+        self.layout.addWidget(self.light_button)
+        self.layout.addWidget(self.seat_stock_label)
+        self.layout.addWidget(self.seat_button)
+
+        self.layout.addWidget(self.back_button)
+
+        self.setLayout(self.layout)
+        self.setFixedSize(800, 600)
+
+
+    def update_stock_label(self):
+        """Update available stock after each action"""
+        self.frame_welding_stock_label.setText(f"frame welding stock available {self.components['frame']}")
+        self.fork_welding_stock_label.setText(f" fork welding stock available {self.components['fork']}")
+        self.painting_stock_label.setText(f"paint stock available {self.components['painting']}")
+        self.pedal_stock_label.setText(f"pedal stock available{self.components['pedal']}")
+        self.wheel_stock_label.setText(f"wheel stock available {self.components['wheel']}")
+        self.chain_stock_label.setText(f"Chain stock available{self.components['chain']}")
+        self.brake_stock_label.setText(f"brake stock available {self.components['brakes']}")
+        self.light_stock_label.setText(f"lights stock available{self.components['lights']}")
+        self.seat_stock_label.setText(f"Seat stock available {self.components['seats']}")
+
+    def check_component_levels(self, component_name):
+        """Check if a components levels exceeds our threshold."""
+        if self.components[component_name] > 3:
+            print(f"Warning {component_name} does not meet warning threshold level")
+
+    def record_frame_welding(self):
+        if self.components['steel'] >= 1:
+            self.components['frame'] -= 1
+            print("Frame welding completed")
+            self.check_component_levels('frame')
+            self.update_stock_label()
+        else:
+            print("Not enough steel from frame welding")
+
+    def record_fork_welding(self):
+        if self.components['steel'] >= 1:
+            self.components['fork'] -= 1
+            print("Fork welding complete")
+            self.check_component_levels('fork')
+            self.update_stock_label()
+        else:
+            print("Not enough steel to complete fork welding")
+
+    def record_painting(self):
+        if self.components['frame'] > 0 and self.components['fork'] > 0:
+            self.components['painting'] -= 1
+            print("Painting process complete")
+            self.check_component_levels('painting')
+            self.update_stock_label()
+        else:
+            print("Not enough frames or forks available for painting to start")
+
+    def record_pedal_addition(self):
+        if self.components['painting'] > 0:
+            self.components['pedal'] -= 1
+            print("Pedal has been added")
+            self.update_stock_label()
+        else:
+            print("No painted frames to move onto pedal addition")
+
+    def record_wheel_addition(self):
+        if self.components['pedal'] > 0:
+            self.components['wheel'] -= 1
+            print("Wheel addition complete")
+            self.update_stock_label()
+        else:
+            print("No pedals available to begin wheel addition")
+
+    def record_chain_addition(self):
+        if self.components['wheel'] > 0:
+            self.components['chain'] -= 1
+            print("Chain and gear installed")
+            self.update_stock_label()
+        else:
+            print("No wheels available for chain and gear addition")
+
+    def record_brake_addition(self):
+        if self.components['chain'] > 0:
+            self.components['brakes'] -= 1
+            print("Brakes have been added")
+            self.update_stock_label()
+        else:
+            print("No chains available to complete brake addition")
+
+    def record_light_addition(self):
+        if self.components['brakes'] > 0:
+            self.components['lights'] -= 1
+            print("Lights have been added")
+            self.update_stock_label()
+        else:
+            print("No brakes available for light addition")
+
+    def record_seat_addition(self):
+        if self.components['lights'] > 0:
+            self.components['seats'] -= 1
+            print("Seat has been added")
+            self.update_stock_label()
+        else:
+            print("seat cannot be added as no lights available")
+    def back_button_clicked(self):
+        self.main_window.transition_to_main_screen()
+
+
+
+class InventoryManagementPage(BasePage):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+        self.setWindowTitle("Inventory Management")
+        self.back_button = QPushButton("Back to home page")
+        self.back_button.clicked.connect(self.back_button_clicked)
+        self.layout.addWidget(self.back_button)
+
+        self.components = {
+            'steel': 20,
+            'frame': 20,
+            'fork': 50,
+            'painting': 20,
+            'pedal': 30,
+            'wheel': 10,
+            'chain': 3,
+            'brakes': 6,
+            'lights': 1,
+            'seats': 4,
+        }
+        self.components_widgets = {}
+
+        for component, stock in self.components.items():
+            self.create_component_ui(component, stock)
+
+        self.warning_label = QLabel("")
+        self.warning_label.setStyleSheet("color: red; font-weight: bold;")
+        self.layout.addWidget(self.warning_label)
+
+        self.update_inventory_display()
+
+    def create_component_ui(self, component, stock):
+        """Create the UI elements for a component"""
+        label = QLabel(f"{component.capitalize()}stock: {stock}")
+        reorder_button = QPushButton(f"reorder {component}")
+        reorder_button.clicked.connect(lambda: self.reorder_component(component))
+
+        component_layout = QHBoxLayout()
+        component_layout.addWidget(label)
+        component_layout.addWidget(reorder_button)
+
+        self.layout.addLayout(component_layout)
+        self.components_widgets[component] = label
+
+    def reorder_component(self, component):
+        """Increase the stock of a component by 1 unit"""
+        self.components[component] += 1
+        print(f"{component.capitalize()}")
+        self.update_inventory_display()
+
+    def update_inventory_display(self):
+        """Update the stock levels display and check for threshold warnings"""
+        for component, stock in self.components.items():
+            self.components_widgets[component].setText(f"{component.capitalize()} stock: {stock}")
+
+            warnings = []
+            for component, stock in self.components.items():
+                if stock < 3:
+                    warnings.append(f"{component.capitalize()} needs a reorder asap!")
+            if warnings:
+                self.warning_label.setText("\n".join(warnings))
+            else:
+                self.warning_label.setText("")
+    def back_button_clicked(self):
+        self.main_window.transition_to_main_screen()
+
+
+class OrderMangementPage(BasePage):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+        self.setWindowTitle("Order management")
+
+        self.orders = []
+
+        self.model_label = QLabel("Bike model")
+        self.model_input = QLineEdit()
+
+        self.size_label = QLabel("Size:")
+        self.size_input = QComboBox()
+        self.size_input.addItems(["small", "medium", "Large", "Extra large"])
+
+        self.colour_label = QLabel("Colour:")
+        self.colour_input = QComboBox()
+        self.colour_input.addItems(["Red", "Black", "White", "Yellow", "Orange"])
+
+        self.wheel_size_label = QLabel("Wheel size:")
+        self.wheel_size_input = QComboBox()
+        self.wheel_size_input.addItems(["Standard", "Premium"])
+
+        self.brake_type_label = QLabel("Brake type:")
+        self.brake_type_input = QComboBox()
+        self.brake_type_input.addItems(["Standard(Disk)", "Premium(Rim)"])
+
+        self.light_type_label = QLabel("Light type:")
+        self.light_type_input = QComboBox()
+        self.light_type_input.addItems(["Standard", "Premium (LED)"])
+
+        self.customer_name_label = QLabel("Customer name:")
+        self.customer_name_input = QLineEdit()
+
+        self.contact_label = QLabel("Contact information:")
+        self.contact_input = QLineEdit()
+
+        self.delivery_address_label = QLabel(" Customer Delievery adresss")
+        self.delivery_address_input = QLineEdit()
+
+        self.submit_order_button = QPushButton("Submit customer order")
+        self.submit_order_button.clicked.connect(self.submit_order)
+
+        self.back_button = QPushButton("Back to home page")
+        self.back_button.clicked.connect(self.back_button_clicked)
+
+        self.layout.addWidget(self.model_label)
+        self.layout.addWidget(self.model_input)
+        self.layout.addWidget(self.size_label)
+        self.layout.addWidget(self.size_input)
+        self.layout.addWidget(self.colour_label)
+        self.layout.addWidget(self.colour_input)
+        self.layout.addWidget(self.wheel_size_label)
+        self.layout.addWidget(self.wheel_size_input)
+        self.layout.addWidget(self.brake_type_label)
+        self.layout.addWidget(self.brake_type_input)
+        self.layout.addWidget(self.light_type_label)
+        self.layout.addWidget(self.light_type_input)
+        self.layout.addWidget(self.customer_name_label)
+        self.layout.addWidget(self.customer_name_input)
+        self.layout.addWidget(self.contact_label)
+        self.layout.addWidget(self.contact_input)
+        self.layout.addWidget(self.delivery_address_label)
+        self.layout.addWidget(self.delivery_address_input)
+        self.layout.addWidget(self.submit_order_button)
+
+        self.layout.addWidget(self.back_button)
+
+        self.setLayout(self.layout)
+
+    def submit_order(self):
+        bike_model = self.model_input.text()
+        size = self.size_input.currentText()
+        colour = self.colour_input.currentText()
+        wheel_size = self.wheel_size_input.currentText()
+        brake_type = self.brake_type_input.currentText()
+        light_type = self.light_type_input.currentText()
+
+        customer_name = self.customer_name_input.text()
+        contact_info = self.contact_input.text()
+        delivery_address = self.delivery_address_input.text()
+
+        order = {
+              f"Customer name: {customer_name}\n"
+              f"Contact information: {contact_info}\n"
+              f"Delivery address: {delivery_address}\n"
+              f"Bike model: {bike_model}\n"
+              f"Size: {size}\n"
+              f"Colour: {colour}\n"
+              f"Wheel size: {wheel_size}\n"
+              f"Brake type: {brake_type}\n"
+              f"Light type: {light_type}\n"
+        }
+        self.orders.append(order)
+        self.rest_form()
+
+    def rest_form(self):
+        self.model_input.clear()
+        self.size_input.setCurrentIndex(0)
+        self.colour_input.setCurrentIndex(0)
+        self.wheel_size_input.setCurrentIndex(0)
+        self.brake_type_input.setCurrentIndex(0)
+        self.light_type_input.setCurrentIndex(0)
+        self.customer_name_input.clear()
+        self.contact_input.clear()
+        self.delivery_address_input.clear()
+
+    def back_button_clicked(self):
+        self.main_window.transition_to_main_screen()
+
+class ReportsPage(BasePage):
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+        self.setWindowTitle("customer Order reports")
+
+        self.layout = QVBoxLayout()
+
+        self.title_label = QLabel("Customer orders")
+        self.layout.addWidget(self.title_label)
+
+        self.orders_table = QTableWidget()
+        self.orders_table.setColumnCount(9)
+        self.orders_table.setHorizontalHeaderLabels([
+            "Customer name", "Contact information", "Delievery address", "Bike model", "size", "Colour", "Wheel size", "Brake Type", "Light type"
+        ])
+        self.layout.addWidget(self.orders_table)
+
+        self.back_button = QPushButton("Back to home page")
+        self.back_button.clicked.connect(self.back_button_clicked)
+        self.layout.addWidget(self.back_button)
+
+        self.setLayout(self.layout)
+
+    def display_orders(self, orders):
+        self.orders_table.setRowCount(len(orders))
+        for row, order in enumerate(orders):
+            self.orders_table.setItem(row, 0, QTableWidgetItem(order['customer_name']))
+            self.orders_table.setItem(row, 1, QTableWidgetItem(order['contact_information']))
+            self.orders_table.setItem(row, 2, QTableWidgetItem(order['delievery address']))
+            self.orders_table.setItem(row, 3, QTableWidgetItem(order['bike model']))
+            self.orders_table.setItem(row, 4, QTableWidgetItem(order['size']))
+            self.orders_table.setItem(row, 5, QTableWidgetItem(order['colour']))
+            self.orders_table.setItem(row, 6, QTableWidgetItem(order['wheel_size']))
+            self.orders_table.setItem(row, 7, QTableWidgetItem(order['brake-type']))
+            self.orders_table.setItem(row, 8, QTableWidgetItem(order['light_type']))
+    def back_button_clicked(self):
+        self.main_window.transition_to_main_screen()
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Greener Bikes Bicycle Factory")
+        self.setGeometry(100, 100, 800, 600)
+
+        self.login_page = LoginPage(self)
+        self.registration_page = RegistrationPage(self)
+        self.main_screen = MainScreen(self)
+        self.production_workflow_page = ProductionWorkflowPage(self)
+        self.inventory_management_page = InventoryManagementPage(self)
+        self.order_management_page = OrderMangementPage(self)
+        self.reports_page = ReportsPage(self)
+
+        self.stacked_widget = QStackedWidget()
+        self.stacked_widget.addWidget(self.login_page)
+        self.stacked_widget.addWidget(self.registration_page)
+        self.stacked_widget.addWidget(self.main_screen)
+        self.stacked_widget.addWidget(self.production_workflow_page)
+        self.stacked_widget.addWidget(self.inventory_management_page)
+        self.stacked_widget.addWidget(self.order_management_page)
+        self.stacked_widget.addWidget(self.reports_page)
+
+        self.setCentralWidget(self.stacked_widget)
+
+    def transition_to_main_screen(self):
+        """Swtich to the main screen after login"""
+        self.stacked_widget.setCurrentWidget(self.main_screen)
+
+    def transition_to_registration_page(self):
+        """  Switch to the registration page """
+        self.stacked_widget.setCurrentWidget(self.registration_page)
+
+    def transition_to_the_login_page(self):
+        """ Switch to the login page """
+        self.stacked_widget.setCurrentWidget(self.login_page)
+
+    def transition_to_production_workflow(self):
+        self.stacked_widget.setCurrentWidget(self.production_workflow_page)
+        print("Going to production workflow")
+
+    def transition_to_inventory_page(self):
+        self.stacked_widget.setCurrentWidget(self.inventory_management_page)
+        print("Going to inventory mangement")
+
+    def transition_to_order_management_page(self):
+        """" Switching to order management page"""
+        self.stacked_widget.setCurrentWidget(self.order_management_page)
+    def transition_to_reports_page(self):
+        self.stacked_widget.setCurrentWidget(self.reports_page)
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
+
+
